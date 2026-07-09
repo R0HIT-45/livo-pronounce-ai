@@ -10,7 +10,7 @@ class Settings(BaseSettings):
 
     CORS_ORIGINS: str = "https://livo-pronounce-ai.vercel.app,http://localhost:5173,http://localhost:3000"
 
-    MODEL_NAME: str = "base"
+    MODEL_NAME: str = "tiny"
     DEVICE: str = "cpu"
     COMPUTE_TYPE: str = "int8"
     BEAM_SIZE: int = 1
