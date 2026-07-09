@@ -9,23 +9,24 @@ from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
-# --------------------------------------------------
-# Load Whisper model once when the server starts
-# --------------------------------------------------
+_model = None
 
-logger.info(
-    "Loading Whisper model '%s' on %s...",
-    settings.MODEL_NAME,
-    settings.DEVICE,
-)
 
-model = WhisperModel(
-    settings.MODEL_NAME,
-    device=settings.DEVICE,
-    compute_type=settings.COMPUTE_TYPE,
-)
-
-logger.info("Whisper model loaded successfully.")
+def get_model() -> WhisperModel:
+    global _model
+    if _model is None:
+        logger.info(
+            "Loading Whisper model '%s' on %s...",
+            settings.MODEL_NAME,
+            settings.DEVICE,
+        )
+        _model = WhisperModel(
+            settings.MODEL_NAME,
+            device=settings.DEVICE,
+            compute_type=settings.COMPUTE_TYPE,
+        )
+        logger.info("Whisper model loaded successfully.")
+    return _model
 
 
 def transcribe_audio(audio_bytes: bytes) -> dict:
@@ -49,7 +50,7 @@ def transcribe_audio(audio_bytes: bytes) -> dict:
 
         logger.info("Starting transcription...")
 
-        segments, info = model.transcribe(
+        segments, info = get_model().transcribe(
             temp_path,
             beam_size=settings.BEAM_SIZE,
             word_timestamps=True,
