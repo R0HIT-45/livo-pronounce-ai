@@ -1,0 +1,120 @@
+# Environment Variables
+.env
+.env.local
+.env.*.local
+*.pem
+.env.development
+.env.production
+
+# Node & Package Managers
+node_modules/
+package-lock.json
+pnpm-lock.yaml
+bun.lockb
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Python Virtual Environments
+venv/
+ENV/
+env/
+.venv
+
+# IDEs & Editors
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+.DS_Store
+.project
+.pydevproject
+.settings/
+*.sublime-workspace
+*.sublime-project
+
+# OS Files
+Thumbs.db
+Desktop.ini
+.DS_Store
+*.bak
+*.tmp
+
+# Build & Dist
+dist/
+build/
+.next/
+.nuxt/
+.cache/
+.output/
+.vinxi
+.tanstack/
+.nitro
+*.local
+
+# Frontend Build Tools
+.vite/
+.viteignore
+
+# Cloudflare & Wrangler
+.wrangler/
+.dev.vars
+*.wrangler.toml
+
+# Code Coverage
+coverage/
+.nyc_output/
+
+# Prettier & ESLint
+.prettierignore
+.eslintcache
+
+# Docker
+docker-compose.override.yml
+
+# Temporary Files
+*.log
+*.log.*
+tmp/
+temp/
+*.swp
+*.swo
+*~
+
+# Lovable References (Clean Install)
+.lovable/
+.lovable-*
+
+# OS Specific
+.vscode-server/
+.container/
