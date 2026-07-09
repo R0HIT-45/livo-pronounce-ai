@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import time
 
 from fastapi import APIRouter, UploadFile, File, HTTPException
 from fastapi.concurrency import run_in_threadpool
@@ -19,21 +20,26 @@ ANALYSIS_TIMEOUT = 120
 @router.post("/analyze")
 async def analyze_audio(file: UploadFile = File(...)):
 
+    t0 = time.perf_counter()
+
     try:
 
         logger.info(f"Received file: {file.filename}")
 
         audio_bytes = await file.read()
+        logger.info("Read file %.2fs", time.perf_counter() - t0)
 
         validate_audio(
             audio_bytes,
             file.content_type
         )
+        logger.info("Validation %.2fs", time.perf_counter() - t0)
 
         transcription = await asyncio.wait_for(
             run_in_threadpool(transcribe_audio, audio_bytes),
             timeout=ANALYSIS_TIMEOUT,
         )
+        logger.info("Whisper finished %.2fs", time.perf_counter() - t0)
 
         duration = transcription["duration"]
         if duration < settings.MIN_DURATION:
@@ -51,8 +57,9 @@ async def analyze_audio(file: UploadFile = File(...)):
             scoring_service.calculate_metrics,
             transcription
         )
+        logger.info("Scoring finished %.2fs", time.perf_counter() - t0)
 
-        logger.info("Speech analysis completed successfully.")
+        logger.info("Returning response %.2fs", time.perf_counter() - t0)
 
         return {
             "success": True,

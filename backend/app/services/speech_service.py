@@ -52,8 +52,11 @@ def transcribe_audio(audio_bytes: bytes) -> dict:
 
         segments, info = get_model().transcribe(
             temp_path,
+            language="en",
             beam_size=settings.BEAM_SIZE,
             word_timestamps=True,
+            vad_filter=True,
+            condition_on_previous_text=False,
         )
 
         transcript_parts = []
