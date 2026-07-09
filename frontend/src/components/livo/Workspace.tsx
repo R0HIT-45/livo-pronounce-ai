@@ -13,7 +13,11 @@ import {
   Loader2,
 } from "lucide-react";
 import { useRecorder } from "@/lib/livo/useRecorder";
+import { getAudioDuration } from "@/lib/livo/api";
 import type { AppState } from "@/lib/livo/types";
+
+const MIN_DURATION = 30;
+const MAX_DURATION = 45;
 
 const ACCEPTED_EXT = ["mp3", "wav", "ogg", "webm", "m4a", "mp4"];
 const ACCEPTED_MIMES = "audio/mpeg,audio/wav,audio/ogg,audio/webm,audio/mp4,audio/x-m4a,video/mp4";
@@ -32,19 +36,23 @@ export function Workspace({ state, onReady, onAnalyze, onClear, onCancel }: Prop
   const [dragging, setDragging] = useState(false);
   const [uploadedName, setUploadedName] = useState<string | null>(null);
   const [uploadedSize, setUploadedSize] = useState<number>(0);
+  const [duration, setDuration] = useState<number | null>(null);
+  const [durationError, setDurationError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const recorder = useRecorder();
 
   const clearUpload = useCallback(() => {
     setUploadedName(null);
     setUploadedSize(0);
+    setDuration(null);
+    setDurationError(null);
     setUploadError(null);
     if (inputRef.current) inputRef.current.value = "";
     onClear();
   }, [onClear]);
 
   const validateAndSet = useCallback(
-    (file: File) => {
+    async (file: File) => {
       const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
       if (!ACCEPTED_EXT.includes(ext)) {
         setUploadError(
@@ -57,6 +65,26 @@ export function Workspace({ state, onReady, onAnalyze, onClear, onCancel }: Prop
         return;
       }
       setUploadError(null);
+      setDurationError(null);
+
+      let fileDuration: number;
+      try {
+        fileDuration = await getAudioDuration(file);
+        setDuration(fileDuration);
+      } catch {
+        setUploadError("Could not determine audio duration.");
+        return;
+      }
+
+      if (fileDuration < MIN_DURATION) {
+        setDurationError(`Audio must be at least ${MIN_DURATION} seconds long (got ${fileDuration.toFixed(1)}s).`);
+        return;
+      }
+      if (fileDuration > MAX_DURATION) {
+        setDurationError(`Audio must not exceed ${MAX_DURATION} seconds (got ${fileDuration.toFixed(1)}s).`);
+        return;
+      }
+
       setUploadedName(file.name);
       setUploadedSize(file.size);
       recorder.reset();
@@ -90,14 +118,33 @@ export function Workspace({ state, onReady, onAnalyze, onClear, onCancel }: Prop
   const handleStopRecording = useCallback(async () => {
     if (isAnalyzing) return;
     const blob = await recorder.stop();
-    if (blob && !isAnalyzing) {
-      const est = Math.max(1, Math.floor(recorder.state.seconds));
-      const file = new File([blob], `recording-${est}s.webm`, { type: "audio/webm" });
-      onReady("record", file);
+    if (!blob || isAnalyzing) return;
+
+    const file = new File([blob], "recording.webm", { type: "audio/webm" });
+    setDurationError(null);
+
+    let fileDuration: number;
+    try {
+      fileDuration = await getAudioDuration(file);
+      setDuration(fileDuration);
+    } catch {
+      setUploadError("Could not determine audio duration.");
+      return;
     }
+
+    if (fileDuration < MIN_DURATION) {
+      setDurationError(`Audio must be at least ${MIN_DURATION} seconds long (got ${fileDuration.toFixed(1)}s).`);
+      return;
+    }
+    if (fileDuration > MAX_DURATION) {
+      setDurationError(`Audio must not exceed ${MAX_DURATION} seconds (got ${fileDuration.toFixed(1)}s).`);
+      return;
+    }
+
+    onReady("record", file);
   }, [recorder, onReady, isAnalyzing]);
   const isError = state.kind === "error";
-  const hasFile = state.kind === "ready" || isError;
+  const hasFile = (state.kind === "ready" || isError) && !durationError;
   const errorMessage = isError ? state.message : null;
 
   return (
@@ -185,7 +232,10 @@ export function Workspace({ state, onReady, onAnalyze, onClear, onCancel }: Prop
                           {uploadedName}
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          {(uploadedSize / 1024 / 1024).toFixed(2)} MB · ready to analyze
+                          {(uploadedSize / 1024 / 1024).toFixed(2)} MB
+                          {duration !== null && ` · ${duration.toFixed(1)}s`}
+                          {!durationError && " · ready to analyze"}
+                          {durationError && " · duration check failed"}
                         </p>
                       </div>
                     </div>
@@ -339,7 +389,8 @@ export function Workspace({ state, onReady, onAnalyze, onClear, onCancel }: Prop
                     <div>
                       <p className="text-sm font-medium">Recording</p>
                       <p className="text-xs text-muted-foreground">
-                        {formatTime(recorder.state.seconds)} · ready to analyze
+                        {duration !== null ? `${duration.toFixed(1)}s` : formatTime(recorder.state.seconds)}
+                        {durationError ? " · duration check failed" : " · ready to analyze"}
                       </p>
                     </div>
                   </div>
@@ -360,7 +411,25 @@ export function Workspace({ state, onReady, onAnalyze, onClear, onCancel }: Prop
                 </div>
               )}
 
-              {recorder.state.error && !errorMessage && (
+              <AnimatePresence>
+                {durationError && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0 }}
+                    role="alert"
+                    className="mt-4 flex items-start gap-3 rounded-xl border border-[color:oklch(0.88_0.09_25)] bg-[color:oklch(0.97_0.03_25)] p-4"
+                  >
+                    <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
+                    <div>
+                      <p className="text-sm font-semibold text-foreground">Invalid duration</p>
+                      <p className="mt-0.5 text-xs text-muted-foreground">{durationError}</p>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {recorder.state.error && !errorMessage && !durationError && (
                 <div
                   role="alert"
                   className="mt-4 flex items-start gap-3 rounded-xl border border-[color:oklch(0.88_0.09_25)] bg-[color:oklch(0.97_0.03_25)] p-4"

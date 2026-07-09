@@ -4,6 +4,7 @@ import logging
 from fastapi import APIRouter, UploadFile, File, HTTPException
 from fastapi.concurrency import run_in_threadpool
 
+from app.core.config import settings
 from app.core.security import validate_audio
 from app.services.speech_service import transcribe_audio
 from app.services.scoring_service import scoring_service
@@ -33,6 +34,18 @@ async def analyze_audio(file: UploadFile = File(...)):
             run_in_threadpool(transcribe_audio, audio_bytes),
             timeout=ANALYSIS_TIMEOUT,
         )
+
+        duration = transcription["duration"]
+        if duration < settings.MIN_DURATION:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Audio duration must be between {settings.MIN_DURATION} and {settings.MAX_DURATION} seconds."
+            )
+        if duration > settings.MAX_DURATION:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Audio duration must be between {settings.MIN_DURATION} and {settings.MAX_DURATION} seconds."
+            )
 
         assessment = await run_in_threadpool(
             scoring_service.calculate_metrics,
