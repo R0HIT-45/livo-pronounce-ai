@@ -51,7 +51,7 @@ export function Processing({ onCancel }: { onCancel: () => void }) {
             <p className="mt-3 text-sm text-muted-foreground">{message}</p>
             <p className="mt-1 text-xs tabular-nums text-muted-foreground">Elapsed: {elapsed}s</p>
             <p className="mt-4 text-xs text-muted-foreground">
-              Usually 5–15s · First request up to 60s
+              Processing your speech. This may take a moment.
             </p>
           </div>
 

@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-ANALYSIS_TIMEOUT = 120
+ANALYSIS_TIMEOUT = 180
 
 
 @router.post("/analyze")
