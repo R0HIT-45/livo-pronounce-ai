@@ -9,7 +9,7 @@
 
 # Node & Package Managers
 node_modules/
-package-lock.json
+
 pnpm-lock.yaml
 bun.lockb
 npm-debug.log*
@@ -30,8 +30,8 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
-lib64/
+backend/lib/
+backend/lib64/
 parts/
 sdist/
 var/
@@ -97,7 +97,7 @@ coverage/
 .nyc_output/
 
 # Prettier & ESLint
-.prettierignore
+
 .eslintcache
 
 # Docker
