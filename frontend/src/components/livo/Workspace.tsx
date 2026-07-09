@@ -85,19 +85,17 @@ export function Workspace({ state, onReady, onAnalyze, onClear, onCancel }: Prop
     [state.kind, validateAndSet],
   );
 
-  const handleStopRecording = useCallback(() => {
-    recorder.stop();
-    setTimeout(() => {
-      const blob = recorder.state.blob;
-      if (blob) {
-        const est = Math.max(1, Math.floor(recorder.state.seconds));
-        const file = new File([blob], `recording-${est}s.webm`, { type: "audio/webm" });
-        onReady("record", file);
-      }
-    }, 100);
-  }, [recorder, onReady]);
-
   const isAnalyzing = state.kind === "analyzing";
+
+  const handleStopRecording = useCallback(async () => {
+    if (isAnalyzing) return;
+    const blob = await recorder.stop();
+    if (blob && !isAnalyzing) {
+      const est = Math.max(1, Math.floor(recorder.state.seconds));
+      const file = new File([blob], `recording-${est}s.webm`, { type: "audio/webm" });
+      onReady("record", file);
+    }
+  }, [recorder, onReady, isAnalyzing]);
   const isError = state.kind === "error";
   const hasFile = state.kind === "ready" || isError;
   const errorMessage = isError ? state.message : null;

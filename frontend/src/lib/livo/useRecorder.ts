@@ -26,6 +26,7 @@ export function useRecorder() {
   const rafRef = useRef<number | null>(null);
   const startTimeRef = useRef<number>(0);
   const chunksRef = useRef<Blob[]>([]);
+  const resolveStopRef = useRef<((blob: Blob) => void) | null>(null);
 
   useEffect(() => {
     return () => cleanup();
@@ -66,6 +67,8 @@ export function useRecorder() {
         const blob = new Blob(chunksRef.current, { type: "audio/webm" });
         const url = URL.createObjectURL(blob);
         setState((s) => ({ ...s, status: "stopped", blob, audioUrl: url }));
+        resolveStopRef.current?.(blob);
+        resolveStopRef.current = null;
       };
       rec.start();
       mediaRecorderRef.current = rec;
@@ -107,10 +110,17 @@ export function useRecorder() {
     }
   }
 
-  function stop() {
-    mediaRecorderRef.current?.stop();
-    if (rafRef.current) cancelAnimationFrame(rafRef.current);
-    streamRef.current?.getTracks().forEach((t) => t.stop());
+  function stop(): Promise<Blob | null> {
+    return new Promise((resolve) => {
+      if (mediaRecorderRef.current?.state === "inactive") {
+        resolve(null);
+        return;
+      }
+      resolveStopRef.current = resolve;
+      mediaRecorderRef.current?.stop();
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      streamRef.current?.getTracks().forEach((t) => t.stop());
+    });
   }
 
   function reset() {

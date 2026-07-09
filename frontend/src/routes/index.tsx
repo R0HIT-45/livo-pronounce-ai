@@ -25,6 +25,7 @@ function Index() {
   const resultsRef = useRef<HTMLDivElement>(null);
 
   const onReady = useCallback((source: "upload" | "record", file: File) => {
+    if (analysisActiveRef.current) return;
     fileRef.current = file;
     setState({ kind: "ready", source, fileName: file.name, sizeBytes: file.size });
   }, []);
@@ -154,11 +155,11 @@ function Index() {
 }
 
 function getErrorMessage(err: unknown): string {
-  if (err instanceof DOMException && err.name === "AbortError") {
-    return "";
-  }
   if (err instanceof TypeError) {
     return "Unable to reach the server. Check your internet connection and try again.";
+  }
+  if (err instanceof DOMException && err.name === "AbortError") {
+    return "The server took too long to respond. This can happen while the AI model is starting.";
   }
   const msg = err instanceof Error ? err.message : "Analysis failed.";
   if (/timed?\s*out|timeout/i.test(msg)) {

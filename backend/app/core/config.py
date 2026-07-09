@@ -8,12 +8,12 @@ class Settings(BaseSettings):
     APP_NAME: str = "Livo Pronounce AI"
     VERSION: str = "1.0.0"
 
-    CORS_ORIGINS: str = "http://localhost:5173,http://localhost:3000"
+    CORS_ORIGINS: str = "https://livo-pronounce-ai.vercel.app,http://localhost:5173,http://localhost:3000"
 
     MODEL_NAME: str = "base"
     DEVICE: str = "cpu"
     COMPUTE_TYPE: str = "int8"
-    BEAM_SIZE: int = 5
+    BEAM_SIZE: int = 1
 
     MAX_AUDIO_SIZE_MB: int = 5
 
