@@ -1,9 +1,33 @@
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Check, Loader2 } from "lucide-react";
-import { PROCESSING_STAGES } from "@/lib/livo/analysis";
+import { Loader2, XCircle } from "lucide-react";
 
-export function Processing({ stage }: { stage: number }) {
-  const progress = Math.min(100, ((stage + 1) / PROCESSING_STAGES.length) * 100);
+const MESSAGES = [
+  { after: 0, text: "Uploading audio…" },
+  { after: 4, text: "Waiting for server…" },
+  { after: 15, text: "Analyzing pronunciation…" },
+  { after: 45, text: "Still working…" },
+];
+
+export function Processing({ onCancel }: { onCancel: () => void }) {
+  const [elapsed, setElapsed] = useState(0);
+  const [message, setMessage] = useState(MESSAGES[0].text);
+
+  useEffect(() => {
+    const start = Date.now();
+    const tick = setInterval(() => {
+      const s = Math.floor((Date.now() - start) / 1000);
+      setElapsed(s);
+
+      let m = MESSAGES[0].text;
+      for (const entry of MESSAGES) {
+        if (s >= entry.after) m = entry.text;
+      }
+      setMessage(m);
+    }, 1000);
+    return () => clearInterval(tick);
+  }, []);
+
   return (
     <section className="section-y">
       <div className="mx-auto max-w-2xl px-6">
@@ -24,62 +48,23 @@ export function Processing({ stage }: { stage: number }) {
               </span>
             </div>
             <h3 className="mt-6 text-2xl font-bold tracking-tight">Analyzing your speech…</h3>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Usually takes just a few seconds. Please keep this tab open.
+            <p className="mt-3 text-sm text-muted-foreground">{message}</p>
+            <p className="mt-1 text-xs tabular-nums text-muted-foreground">Elapsed: {elapsed}s</p>
+            <p className="mt-4 text-xs text-muted-foreground">
+              Usually 5–15s · First request up to 60s
             </p>
           </div>
 
-          <div className="mt-8">
-            <div className="h-2 overflow-hidden rounded-full bg-primary-50">
-              <motion.div
-                animate={{ width: `${progress}%` }}
-                transition={{ duration: 0.5, ease: "easeOut" }}
-                className="h-full rounded-full"
-                style={{ background: "var(--gradient-primary)" }}
-              />
-            </div>
-            <p className="mt-2 text-right text-xs font-semibold tabular-nums text-primary-700">
-              {Math.round(progress)}%
-            </p>
+          <div className="mt-8 flex justify-center">
+            <button
+              type="button"
+              onClick={onCancel}
+              className="inline-flex items-center gap-2 rounded-xl border border-border bg-white px-5 py-2.5 text-sm font-medium text-foreground hover:bg-secondary transition-colors"
+            >
+              <XCircle className="h-4 w-4 text-destructive" />
+              Cancel Analysis
+            </button>
           </div>
-
-          <ul className="mt-6 grid gap-2 sm:grid-cols-2">
-            {PROCESSING_STAGES.map((label, i) => {
-              const done = i < stage;
-              const active = i === stage;
-              return (
-                <li
-                  key={label}
-                  className={`flex items-center gap-3 rounded-xl border px-3 py-2.5 text-sm transition-colors ${
-                    done
-                      ? "border-primary-100 bg-primary-50/60 text-foreground"
-                      : active
-                        ? "border-primary-200 bg-white text-foreground shadow-[var(--shadow-elev-1)]"
-                        : "border-border bg-white/50 text-muted-foreground"
-                  }`}
-                >
-                  <span
-                    className={`flex h-6 w-6 items-center justify-center rounded-full ${
-                      done
-                        ? "bg-primary-600 text-white"
-                        : active
-                          ? "bg-primary-100 text-primary-700"
-                          : "bg-secondary text-muted-foreground"
-                    }`}
-                  >
-                    {done ? (
-                      <Check className="h-3.5 w-3.5" />
-                    ) : active ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    ) : (
-                      <span className="text-[10px] font-bold">{i + 1}</span>
-                    )}
-                  </span>
-                  <span className="text-xs font-medium">{label}</span>
-                </li>
-              );
-            })}
-          </ul>
         </motion.div>
       </div>
     </section>

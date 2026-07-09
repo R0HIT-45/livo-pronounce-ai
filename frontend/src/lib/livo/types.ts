@@ -1,11 +1,5 @@
 export type Grade =
-  | "Outstanding"
-  | "Excellent"
-  | "Very Good"
-  | "Good"
-  | "Average"
-  | "Needs Improvement"
-  | "Poor";
+  "Outstanding" | "Excellent" | "Very Good" | "Good" | "Average" | "Needs Improvement" | "Poor";
 
 export type WordStatus = "Excellent" | "Good" | "Fair" | "Needs Practice";
 
@@ -39,6 +33,6 @@ export interface AnalysisResponse {
 export type AppState =
   | { kind: "idle" }
   | { kind: "ready"; source: "upload" | "record"; fileName: string; sizeBytes: number }
-  | { kind: "processing"; stage: number }
-  | { kind: "results"; data: AnalysisResponse }
-  | { kind: "error"; message: string };
+  | { kind: "analyzing" }
+  | { kind: "error"; message: string }
+  | { kind: "results"; data: AnalysisResponse };

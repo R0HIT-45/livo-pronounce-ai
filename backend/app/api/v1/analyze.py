@@ -1,5 +1,8 @@
-from fastapi import APIRouter, UploadFile, File, HTTPException
+import asyncio
 import logging
+
+from fastapi import APIRouter, UploadFile, File, HTTPException
+from fastapi.concurrency import run_in_threadpool
 
 from app.core.security import validate_audio
 from app.services.speech_service import transcribe_audio
@@ -9,12 +12,11 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
+ANALYSIS_TIMEOUT = 120
+
 
 @router.post("/analyze")
 async def analyze_audio(file: UploadFile = File(...)):
-    """
-    Analyze uploaded speech and return pronunciation assessment.
-    """
 
     try:
 
@@ -27,9 +29,13 @@ async def analyze_audio(file: UploadFile = File(...)):
             file.content_type
         )
 
-        transcription = transcribe_audio(audio_bytes)
+        transcription = await asyncio.wait_for(
+            run_in_threadpool(transcribe_audio, audio_bytes),
+            timeout=ANALYSIS_TIMEOUT,
+        )
 
-        assessment = scoring_service.calculate_metrics(
+        assessment = await run_in_threadpool(
+            scoring_service.calculate_metrics,
             transcription
         )
 
@@ -42,6 +48,13 @@ async def analyze_audio(file: UploadFile = File(...)):
             "duration": transcription["duration"],
             "assessment": assessment
         }
+
+    except asyncio.TimeoutError:
+        logger.error("Analysis timed out after %ss", ANALYSIS_TIMEOUT)
+        raise HTTPException(
+            status_code=504,
+            detail="Analysis timed out. Please try again."
+        )
 
     except HTTPException:
         raise

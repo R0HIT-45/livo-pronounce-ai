@@ -5,25 +5,15 @@ from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
 
-    # -------------------------
-    # Application
-    # -------------------------
-
     APP_NAME: str = "Livo Pronounce AI"
     VERSION: str = "1.0.0"
 
-    # -------------------------
-    # Whisper Model
-    # -------------------------
+    CORS_ORIGINS: str = "http://localhost:5173,http://localhost:3000"
 
     MODEL_NAME: str = "base"
     DEVICE: str = "cpu"
     COMPUTE_TYPE: str = "int8"
     BEAM_SIZE: int = 5
-
-    # -------------------------
-    # Audio Validation
-    # -------------------------
 
     MAX_AUDIO_SIZE_MB: int = 5
 
@@ -31,10 +21,6 @@ class Settings(BaseSettings):
     MAX_DURATION: int = 45
 
     SUPPORTED_LANGUAGES: ClassVar[list[str]] = ["en"]
-
-    # -------------------------
-    # Logging
-    # -------------------------
 
     LOG_LEVEL: str = "INFO"
 

@@ -10,28 +10,38 @@ import {
   FileAudio,
   Sparkles,
   X,
+  Loader2,
 } from "lucide-react";
 import { useRecorder } from "@/lib/livo/useRecorder";
 import type { AppState } from "@/lib/livo/types";
 
 const ACCEPTED_EXT = ["mp3", "wav", "ogg", "webm", "m4a", "mp4"];
 const ACCEPTED_MIMES = "audio/mpeg,audio/wav,audio/ogg,audio/webm,audio/mp4,audio/x-m4a,video/mp4";
-const MAX_SIZE = 25 * 1024 * 1024;
+const MAX_SIZE = 5 * 1024 * 1024;
 
 interface Props {
   state: AppState;
   onReady: (source: "upload" | "record", file: File) => void;
   onAnalyze: () => void;
   onClear: () => void;
+  onCancel: () => void;
 }
 
-export function Workspace({ state, onReady, onAnalyze, onClear }: Props) {
+export function Workspace({ state, onReady, onAnalyze, onClear, onCancel }: Props) {
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
   const [uploadedName, setUploadedName] = useState<string | null>(null);
   const [uploadedSize, setUploadedSize] = useState<number>(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const recorder = useRecorder();
+
+  const clearUpload = useCallback(() => {
+    setUploadedName(null);
+    setUploadedSize(0);
+    setUploadError(null);
+    if (inputRef.current) inputRef.current.value = "";
+    onClear();
+  }, [onClear]);
 
   const validateAndSet = useCallback(
     (file: File) => {
@@ -43,7 +53,7 @@ export function Workspace({ state, onReady, onAnalyze, onClear }: Props) {
         return;
       }
       if (file.size > MAX_SIZE) {
-        setUploadError("File is too large. Maximum size is 25 MB.");
+        setUploadError("File is too large. Maximum size is 5 MB.");
         return;
       }
       setUploadError(null);
@@ -55,27 +65,27 @@ export function Workspace({ state, onReady, onAnalyze, onClear }: Props) {
     [onReady, recorder],
   );
 
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setDragging(false);
-    const file = e.dataTransfer.files?.[0];
-    if (file) validateAndSet(file);
-  };
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      setDragging(false);
+      if (state.kind === "analyzing") return;
+      const file = e.dataTransfer.files?.[0];
+      if (file) validateAndSet(file);
+    },
+    [state.kind, validateAndSet],
+  );
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) validateAndSet(file);
-  };
+  const handleFileChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (state.kind === "analyzing") return;
+      const file = e.target.files?.[0];
+      if (file) validateAndSet(file);
+    },
+    [state.kind, validateAndSet],
+  );
 
-  const clearUpload = () => {
-    setUploadedName(null);
-    setUploadedSize(0);
-    setUploadError(null);
-    if (inputRef.current) inputRef.current.value = "";
-    onClear();
-  };
-
-  const handleStopRecording = () => {
+  const handleStopRecording = useCallback(() => {
     recorder.stop();
     setTimeout(() => {
       const blob = recorder.state.blob;
@@ -85,10 +95,12 @@ export function Workspace({ state, onReady, onAnalyze, onClear }: Props) {
         onReady("record", file);
       }
     }, 100);
-  };
+  }, [recorder, onReady]);
 
-  const isProcessing = state.kind === "processing";
-  const hasInput = state.kind === "ready" || state.kind === "processing";
+  const isAnalyzing = state.kind === "analyzing";
+  const isError = state.kind === "error";
+  const hasFile = state.kind === "ready" || isError;
+  const errorMessage = isError ? state.message : null;
 
   return (
     <section id="analyze" className="section-y">
@@ -122,17 +134,22 @@ export function Workspace({ state, onReady, onAnalyze, onClear }: Props) {
                 }}
                 onDragLeave={() => setDragging(false)}
                 onDrop={handleDrop}
-                onClick={() => inputRef.current?.click()}
+                onClick={() => {
+                  if (!isAnalyzing) inputRef.current?.click();
+                }}
                 role="button"
                 tabIndex={0}
                 onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") inputRef.current?.click();
+                  if ((e.key === "Enter" || e.key === " ") && !isAnalyzing)
+                    inputRef.current?.click();
                 }}
                 aria-label="Upload audio file"
                 className={`group mt-5 flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed p-8 text-center transition-all ${
-                  dragging
-                    ? "border-primary-500 bg-primary-50/70"
-                    : "border-border bg-secondary/40 hover:border-primary-300 hover:bg-primary-50/40"
+                  isAnalyzing
+                    ? "pointer-events-none opacity-50"
+                    : dragging
+                      ? "border-primary-500 bg-primary-50/70"
+                      : "border-border bg-secondary/40 hover:border-primary-300 hover:bg-primary-50/40"
                 }`}
               >
                 <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white shadow-[var(--shadow-elev-2)]">
@@ -142,7 +159,7 @@ export function Workspace({ state, onReady, onAnalyze, onClear }: Props) {
                   Drop your audio file here
                 </p>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  or click to browse — MP3, WAV, OGG, WEBM, M4A · up to 25 MB
+                  or click to browse — MP3, WAV, OGG, WEBM, M4A · up to 5 MB
                 </p>
                 <input
                   ref={inputRef}
@@ -178,9 +195,10 @@ export function Workspace({ state, onReady, onAnalyze, onClear }: Props) {
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation();
-                        clearUpload();
+                        if (!isAnalyzing) clearUpload();
                       }}
-                      className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground"
+                      disabled={isAnalyzing}
+                      className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground disabled:opacity-30 disabled:pointer-events-none"
                       aria-label="Remove file"
                     >
                       <X className="h-4 w-4" />
@@ -189,8 +207,45 @@ export function Workspace({ state, onReady, onAnalyze, onClear }: Props) {
                 )}
               </AnimatePresence>
 
+              {/* Inline error banner */}
               <AnimatePresence>
-                {uploadError && (
+                {errorMessage && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0 }}
+                    role="alert"
+                    className="mt-4 rounded-xl border border-[color:oklch(0.88_0.09_25)] bg-[color:oklch(0.97_0.03_25)] p-4"
+                  >
+                    <div className="flex items-start gap-3">
+                      <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-foreground">Analysis failed</p>
+                        <p className="mt-0.5 text-xs text-muted-foreground">{errorMessage}</p>
+                      </div>
+                    </div>
+                    <div className="mt-3 flex gap-2">
+                      <button
+                        type="button"
+                        onClick={onAnalyze}
+                        className="btn-primary h-9 px-4 text-xs"
+                      >
+                        Retry
+                      </button>
+                      <button
+                        type="button"
+                        onClick={clearUpload}
+                        className="btn-secondary h-9 px-4 text-xs"
+                      >
+                        Clear
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              <AnimatePresence>
+                {uploadError && !errorMessage && (
                   <motion.div
                     initial={{ opacity: 0, y: 6 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -224,10 +279,11 @@ export function Workspace({ state, onReady, onAnalyze, onClear }: Props) {
                   onClick={
                     recorder.state.status === "recording" ? handleStopRecording : recorder.start
                   }
+                  disabled={isAnalyzing}
                   aria-label={
                     recorder.state.status === "recording" ? "Stop recording" : "Start recording"
                   }
-                  className={`flex h-20 w-20 items-center justify-center rounded-full text-white shadow-[var(--shadow-elev-3)] transition-transform hover:scale-105 ${
+                  className={`flex h-20 w-20 items-center justify-center rounded-full text-white shadow-[var(--shadow-elev-3)] transition-transform hover:scale-105 disabled:pointer-events-none disabled:opacity-40 ${
                     recorder.state.status === "recording"
                       ? "bg-destructive pulse-record"
                       : "bg-primary-600"
@@ -258,11 +314,13 @@ export function Workspace({ state, onReady, onAnalyze, onClear }: Props) {
                 </div>
 
                 <p className="mt-2 text-xs text-muted-foreground">
-                  {recorder.state.status === "recording"
-                    ? "Recording — click to stop"
-                    : recorder.state.status === "stopped"
-                      ? "Recording ready"
-                      : "Tap to start recording"}
+                  {isAnalyzing
+                    ? "Recording disabled during analysis"
+                    : recorder.state.status === "recording"
+                      ? "Recording — click to stop"
+                      : recorder.state.status === "stopped"
+                        ? "Recording ready"
+                        : "Tap to start recording"}
                 </p>
               </div>
 
@@ -290,10 +348,13 @@ export function Workspace({ state, onReady, onAnalyze, onClear }: Props) {
                   <button
                     type="button"
                     onClick={() => {
-                      recorder.reset();
-                      onClear();
+                      if (!isAnalyzing) {
+                        recorder.reset();
+                        onClear();
+                      }
                     }}
-                    className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary hover:text-destructive"
+                    disabled={isAnalyzing}
+                    className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary hover:text-destructive disabled:opacity-30 disabled:pointer-events-none"
                     aria-label="Delete recording"
                   >
                     <Trash2 className="h-4 w-4" />
@@ -301,7 +362,7 @@ export function Workspace({ state, onReady, onAnalyze, onClear }: Props) {
                 </div>
               )}
 
-              {recorder.state.error && (
+              {recorder.state.error && !errorMessage && (
                 <div
                   role="alert"
                   className="mt-4 flex items-start gap-3 rounded-xl border border-[color:oklch(0.88_0.09_25)] bg-[color:oklch(0.97_0.03_25)] p-4"
@@ -319,26 +380,39 @@ export function Workspace({ state, onReady, onAnalyze, onClear }: Props) {
               Your audio is processed in-session only. Nothing is stored on our servers.
             </p>
             <div className="flex items-center justify-center gap-3">
-              <button
-                type="button"
-                onClick={() => {
-                  clearUpload();
-                  recorder.reset();
-                }}
-                disabled={!hasInput || isProcessing}
-                className="btn-secondary h-11 flex-1 px-5 sm:flex-none"
-              >
-                Clear
-              </button>
-              <button
-                type="button"
-                onClick={onAnalyze}
-                disabled={!hasInput || isProcessing}
-                className="btn-primary h-11 flex-1 px-6 sm:flex-none"
-              >
-                <Sparkles className="h-4 w-4" />
-                Analyze speech
-              </button>
+              {isAnalyzing ? (
+                <button
+                  type="button"
+                  onClick={onCancel}
+                  className="btn-secondary h-11 flex-1 px-5 sm:flex-none border-destructive text-destructive hover:bg-destructive/10"
+                >
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Cancel Analysis
+                </button>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      clearUpload();
+                      recorder.reset();
+                    }}
+                    disabled={!hasFile}
+                    className="btn-secondary h-11 flex-1 px-5 sm:flex-none"
+                  >
+                    Clear
+                  </button>
+                  <button
+                    type="button"
+                    onClick={onAnalyze}
+                    disabled={!hasFile}
+                    className="btn-primary h-11 flex-1 px-6 sm:flex-none"
+                  >
+                    <Sparkles className="h-4 w-4" />
+                    {isError ? "Retry" : "Analyze speech"}
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </div>
